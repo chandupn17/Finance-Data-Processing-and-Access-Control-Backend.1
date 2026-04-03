@@ -551,6 +551,6 @@ The seed creates **20** sample financial records across these users, with dates 
 
 ---
 
-## License
+## owner
+chandu pn @ chandupn.05@gmail.com
 
-MIT
