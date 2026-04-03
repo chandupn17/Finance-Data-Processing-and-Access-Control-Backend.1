@@ -6,8 +6,11 @@ REST API for a finance dashboard: **JWT authentication**, **role-based access co
 
 ## Contents
 
+- [Assignment mapping](#assignment-mapping)
+- [Assumptions](#assumptions)
 - [Tech stack](#tech-stack--why)
 - [Getting started](#getting-started)
+- [Automated checks](#automated-checks)
 - [Environment variables](#environment-variables)
 - [API overview](#api-overview)
 - [Authentication](#authentication)
@@ -22,6 +25,26 @@ REST API for a finance dashboard: **JWT authentication**, **role-based access co
 
 ---
 
+## Assignment mapping
+
+How this repo maps to the **Finance Data Processing and Access Control Backend** brief:
+
+1. **User and role management** — `POST /api/auth/register`, `POST /api/auth/login`; admin user APIs under `/api/users` (`src/routes/user.routes.js`, `src/services/user.service.js`, `src/controllers/user.controller.js`). Schema: `User`, `Role`, `isActive` in `prisma/schema.prisma`.
+2. **Financial records** — `GET` / `POST` / `PATCH` / `DELETE` `/api/records` in `src/routes/record.routes.js`, `src/services/record.service.js`, `src/controllers/record.controller.js`; model `FinancialRecord` in Prisma.
+3. **Dashboard summary APIs** — `GET /api/dashboard/summary`, `/by-category`, `/trends`, `/recent` in `src/routes/dashboard.routes.js`, `src/services/dashboard.service.js`, `src/controllers/dashboard.controller.js`.
+4. **Access control** — JWT verification and user load in `src/middleware/authenticate.js`; role gates in `src/middleware/requireRole.js` and on the route files above.
+5. **Validation and error handling** — Zod schemas in `src/validators/*.validator.js`; `src/middleware/errorHandler.js`; `src/utils/ApiError.js`.
+6. **Data persistence** — SQLite via Prisma (`prisma/schema.prisma`, `prisma/migrations/`, `DATABASE_URL` in `.env`).
+
+---
+
+## Assumptions
+
+- **How users are created:** Accounts are created with **`POST /api/auth/register`**, which assigns the **`VIEWER`** role by default. There is no separate admin-only “create user” endpoint; **`ADMIN`** users manage access with **`PATCH /api/users/:id/role`** and **`PATCH /api/users/:id/status`**.
+- **VIEWER vs ANALYST (dashboard and records):** **`VIEWER`** may **`GET /api/dashboard/recent`** (own records only) but **not** **`summary`**, **`by-category`**, or **`trends`** (those require **`ANALYST`** or **`ADMIN`**). **`VIEWER`** and **`ANALYST`** may **list and read** their **own** rows via **`/api/records`**; **`ADMIN`** sees **all** records and is the only role that **creates, updates, or soft-deletes** records.
+
+---
+
 ## Tech stack & why
 
 | Technology | Rationale |
@@ -29,7 +52,7 @@ REST API for a finance dashboard: **JWT authentication**, **role-based access co
 | **Node.js** | Widely adopted runtime; fast iteration for demos and reviews. |
 | **Express.js** | Thin HTTP layer; easy to reason about routes, middleware, and errors. |
 | **SQLite + Prisma** | No separate database server; migrations and type-safe queries out of the box. |
-| **JWT (jsonwebtoken)** | Stateless auth; role in the token avoids an extra DB read for authorization on every call (user is still validated for existence and active status). |
+| **JWT (jsonwebtoken)** | Stateless sessions; tokens carry claims, while **`authenticate`** still loads the user from the DB each request for authoritative **`role`** and **`isActive`**. |
 | **bcryptjs** | Secure password hashing without native compilation requirements. |
 | **Zod** | Request validation with structured, field-level errors for clients. |
 | **JavaScript (CommonJS)** | Simple deployment—no transpiler required. |
@@ -38,10 +61,11 @@ REST API for a finance dashboard: **JWT authentication**, **role-based access co
 
 ## Getting started
 
+From a terminal, **`cd` into this repository’s root folder** (the directory that contains `package.json`), then:
+
 1. **Install dependencies**
 
    ```bash
-   cd finance-dashboard
    npm install
    ```
 
@@ -72,6 +96,19 @@ REST API for a finance dashboard: **JWT authentication**, **role-based access co
 **Base URL:** `http://localhost:8000` (or the host/port you set via `PORT` in `.env`).
 
 If you see `EADDRINUSE` on port 8000, another process is already bound to that port—stop it or change `PORT` in `.env`.
+
+---
+
+## Automated checks
+
+- **Unit-style tests** (no running server): `npm test` — runs Node’s built-in test runner on `tests/` (`ApiError`, `requireRole` middleware, record Zod schemas).
+- **API smoke test** (start the server first; database migrated and seeded as in [Getting started](#getting-started)):
+
+  ```bash
+  node scripts/smoke-api-test.mjs
+  ```
+
+  Override the base URL if needed: `API_BASE=http://127.0.0.1:3000 node scripts/smoke-api-test.mjs`
 
 ---
 
@@ -524,7 +561,7 @@ Invoke-RestMethod -Uri "$BASE/api/dashboard/summary" -Headers $h
 ## Architecture decisions
 
 - **SQLite:** No separate DB process; ideal for local development and assessments. Limited concurrent writers compared to client/server databases.
-- **JWT with role in payload:** Reduces authorization lookups; `authenticate` still loads the user to enforce `isActive` and existence.
+- **JWT with role in payload:** Convenient for clients; `authenticate` still loads the user from the DB each request for authoritative `role`, `isActive`, and existence.
 - **Soft delete:** `deletedAt` preserves history and auditability; all reads exclude soft-deleted rows.
 - **Database aggregations:** Summary, category breakdown, and trends use Prisma `aggregate` / `groupBy` or SQL—avoiding full-table loads in application memory.
 
