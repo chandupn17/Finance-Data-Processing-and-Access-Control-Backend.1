@@ -13,9 +13,24 @@ function randomBetween(min, max) {
   return min + Math.random() * (max - min);
 }
 
+/** Standalone MongoDB (no replica set) — avoid deleteMany/createMany transactions. */
+async function deleteAllRecords() {
+  const rows = await prisma.financialRecord.findMany({ select: { id: true } });
+  for (const { id } of rows) {
+    await prisma.financialRecord.delete({ where: { id } });
+  }
+}
+
+async function deleteAllUsers() {
+  const rows = await prisma.user.findMany({ select: { id: true } });
+  for (const { id } of rows) {
+    await prisma.user.delete({ where: { id } });
+  }
+}
+
 async function main() {
-  await prisma.financialRecord.deleteMany();
-  await prisma.user.deleteMany();
+  await deleteAllRecords();
+  await deleteAllUsers();
 
   const [adminHash, analystHash, viewerHash] = await Promise.all([
     bcrypt.hash('Admin@123', 10),
@@ -54,8 +69,6 @@ async function main() {
   const categoriesExpense = ['Rent', 'Utilities', 'Software', 'Travel', 'Meals'];
 
   const now = new Date();
-  const records = [];
-
   const owners = [admin, analyst, viewer];
 
   for (let i = 0; i < 20; i += 1) {
@@ -71,17 +84,17 @@ async function main() {
 
     const amount = Math.round(randomBetween(isIncome ? 800 : 40, isIncome ? 6500 : 900) * 100) / 100;
 
-    records.push({
-      userId: owner.id,
-      type,
-      category,
-      amount,
-      date,
-      notes: isIncome ? `Seed income — ${category}` : `Seed expense — ${category}`,
+    await prisma.financialRecord.create({
+      data: {
+        userId: owner.id,
+        type,
+        category,
+        amount,
+        date,
+        notes: isIncome ? `Seed income — ${category}` : `Seed expense — ${category}`,
+      },
     });
   }
-
-  await prisma.financialRecord.createMany({ data: records });
 }
 
 main()

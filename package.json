@@ -1,14 +1,14 @@
 {
   "name": "finance-dashboard-api",
   "version": "1.0.0",
-  "description": "Finance Dashboard backend for engineering assessment (Express, Prisma, SQLite, JWT)",
+  "description": "Finance Dashboard backend for engineering assessment (Express, Prisma, MongoDB, JWT)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "postinstall": "prisma generate",
     "test": "node --test tests",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed"
   },

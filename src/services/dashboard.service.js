@@ -13,10 +13,55 @@ function scopeForRole(authUser) {
   return { userId: authUser.id };
 }
 
+function monthlyPeriodKey(date) {
+  const d = new Date(date);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+/** ISO week label similar to dashboard expectations (year + week number). */
+function weeklyPeriodKey(date) {
+  const d = new Date(date);
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((t - yearStart) / 86400000) + 1) / 7);
+  return `${t.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+}
+
+function aggregateTrends(rows, period) {
+  const bucket = period === 'weekly' ? weeklyPeriodKey : monthlyPeriodKey;
+  const map = new Map();
+
+  for (const row of rows) {
+    const p = bucket(row.date);
+    const key = `${p}\0${row.type}`;
+    const cur = map.get(key) || { period: p, type: row.type, total: 0, count: 0 };
+    cur.total += row.amount;
+    cur.count += 1;
+    map.set(key, cur);
+  }
+
+  const out = Array.from(map.values());
+  out.sort((a, b) => {
+    const c = a.period.localeCompare(b.period);
+    if (c !== 0) return c;
+    return String(a.type).localeCompare(String(b.type));
+  });
+
+  return out.map((r) => ({
+    period: r.period,
+    type: r.type,
+    total: r.total,
+    count: r.count,
+  }));
+}
+
 async function summary(authUser) {
   const where = { ...baseWhere(), ...scopeForRole(authUser) };
 
-  // Aggregating at DB layer to avoid loading full record set into memory (O(1) work vs O(n) in JS).
   const [incomeAgg, expenseAgg] = await Promise.all([
     prisma.financialRecord.aggregate({
       where: { ...where, type: 'INCOME' },
@@ -47,7 +92,6 @@ async function summary(authUser) {
 async function byCategory(authUser) {
   const where = { ...baseWhere(), ...scopeForRole(authUser) };
 
-  // groupBy pushes GROUP BY + SUM to SQLite so we never materialize all rows in Node.
   const grouped = await prisma.financialRecord.groupBy({
     by: ['category', 'type'],
     where,
@@ -65,67 +109,14 @@ async function byCategory(authUser) {
 }
 
 async function trends(authUser, period) {
-  // Raw SQL keeps date bucketing and aggregation in SQLite; Prisma groupBy cannot truncate dates per bucket.
-  // Format string must be a SQL literal — binding it as a parameter yields NULL buckets on SQLite with Prisma.
-  const isWeekly = period === 'weekly';
+  const where = { ...baseWhere(), ...scopeForRole(authUser) };
 
-  // Prisma persists DateTime on SQLite as INTEGER unix milliseconds — normalize before strftime.
-  const rows =
-    authUser.role === 'ADMIN'
-      ? isWeekly
-        ? await prisma.$queryRaw`
-            SELECT
-              strftime('%Y-W%W', datetime("date" / 1000.0, 'unixepoch')) AS period,
-              "type",
-              SUM("amount") AS total,
-              COUNT(*) AS cnt
-            FROM "FinancialRecord"
-            WHERE "deletedAt" IS NULL
-            GROUP BY period, "type"
-            ORDER BY period ASC, "type" ASC
-          `
-        : await prisma.$queryRaw`
-            SELECT
-              strftime('%Y-%m', datetime("date" / 1000.0, 'unixepoch')) AS period,
-              "type",
-              SUM("amount") AS total,
-              COUNT(*) AS cnt
-            FROM "FinancialRecord"
-            WHERE "deletedAt" IS NULL
-            GROUP BY period, "type"
-            ORDER BY period ASC, "type" ASC
-          `
-      : isWeekly
-        ? await prisma.$queryRaw`
-            SELECT
-              strftime('%Y-W%W', datetime("date" / 1000.0, 'unixepoch')) AS period,
-              "type",
-              SUM("amount") AS total,
-              COUNT(*) AS cnt
-            FROM "FinancialRecord"
-            WHERE "deletedAt" IS NULL AND "userId" = ${authUser.id}
-            GROUP BY period, "type"
-            ORDER BY period ASC, "type" ASC
-          `
-        : await prisma.$queryRaw`
-            SELECT
-              strftime('%Y-%m', datetime("date" / 1000.0, 'unixepoch')) AS period,
-              "type",
-              SUM("amount") AS total,
-              COUNT(*) AS cnt
-            FROM "FinancialRecord"
-            WHERE "deletedAt" IS NULL AND "userId" = ${authUser.id}
-            GROUP BY period, "type"
-            ORDER BY period ASC, "type" ASC
-          `;
+  const rows = await prisma.financialRecord.findMany({
+    where,
+    select: { date: true, type: true, amount: true },
+  });
 
-  // Prisma/SQLite can surface BIGINT for aggregates; coerce so Express JSON responses never throw.
-  return rows.map((row) => ({
-    period: row.period,
-    type: row.type,
-    total: Number(row.total),
-    count: Number(row.cnt),
-  }));
+  return aggregateTrends(rows, period);
 }
 
 async function recent(authUser, limit = 10) {

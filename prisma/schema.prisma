@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
@@ -19,18 +19,20 @@ enum RecordType {
 }
 
 model User {
-  id        String   @id @default(uuid())
+  id        String            @id @default(uuid()) @map("_id")
   name      String
-  email     String   @unique
+  email     String            @unique
   password  String
-  role      Role     @default(VIEWER)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  role      Role              @default(VIEWER)
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
   records   FinancialRecord[]
+
+  @@map("users")
 }
 
 model FinancialRecord {
-  id        String      @id @default(uuid())
+  id        String      @id @default(uuid()) @map("_id")
   amount    Float
   type      RecordType
   category  String
@@ -47,4 +49,5 @@ model FinancialRecord {
   @@index([category])
   @@index([date])
   @@index([deletedAt])
+  @@map("financial_records")
 }
