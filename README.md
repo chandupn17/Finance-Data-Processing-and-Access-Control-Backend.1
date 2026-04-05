@@ -162,4 +162,18 @@ This app targets **MongoDB** (e.g. **MongoDB Atlas**). Set **`DATABASE_URL`** in
 
 ---
 
+## Screenshots
+
+MongoDB / Atlas (collections and data for this API):
+
+![MongoDB database](database.png)
+
+API testing with Postman (e.g. login or authenticated request):
+
+![Postman API testing](postman.png)
+
+Place both image files in the **repository root** next to `README.md` (`database.png`, `postman.png`). GitHub and most Markdown viewers render these automatically.
+
+---
+
 **Author:** chandu pn · chandupn.05@gmail.com
