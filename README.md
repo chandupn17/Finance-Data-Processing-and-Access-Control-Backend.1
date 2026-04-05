@@ -2,6 +2,8 @@
 
 REST API for a finance dashboard: **JWT authentication**, **role-based access control (RBAC)**, **financial record CRUD** (soft delete), and **dashboard aggregations** on **MongoDB** with **Prisma**.
 
+**Live deployment (Vercel):** [https://finance-data-processing-and-access-navy.vercel.app/](https://finance-data-processing-and-access-navy.vercel.app/) — try [`/health`](https://finance-data-processing-and-access-navy.vercel.app/health) or `POST /api/auth/login` with JSON body.
+
 **Roles:** `VIEWER` · `ANALYST` · `ADMIN` — see [Access control summary](#access-control-summary) and the [endpoint table](#api-endpoints--access-control).
 
 ---
@@ -41,7 +43,7 @@ npm run db:seed
 npm start
 ```
 
-Dev with reload: `npm run dev` · **Base URL:** `http://localhost:8000` (or `PORT` in `.env`).
+Dev with reload: `npm run dev` · **Local base URL:** `http://localhost:8000` (or `PORT` in `.env`) · **Deployed:** `https://finance-data-processing-and-access-navy.vercel.app`
 
 **Checks:** `npm test` (unit-style) · With server running: `node scripts/smoke-api-test.mjs`
 
@@ -158,7 +160,7 @@ Seed adds ~20 sample records across these users.
 
 This app targets **MongoDB** (e.g. **MongoDB Atlas**). Set **`DATABASE_URL`** in Vercel to your Atlas connection string (`mongodb+srv://...`). Run **`npx prisma generate`** on build (already covered by **`postinstall`**) and apply the schema once with **`npx prisma db push`** from your machine (using the production URI) or your CI. Add **`JWT_SECRET`**, **`JWT_EXPIRES_IN`**, **`NODE_ENV=production`**.
 
-**Live URL:** `https://<project>.vercel.app` — try `GET /health` and `POST /api/auth/login`.
+**Live URL:** [https://finance-data-processing-and-access-navy.vercel.app/](https://finance-data-processing-and-access-navy.vercel.app/) — e.g. `GET /health`, `POST /api/auth/login` (same paths as locally; use the deployed origin as the base URL).
 
 ---
 
