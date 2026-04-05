@@ -166,13 +166,17 @@ This app targets **MongoDB** (e.g. **MongoDB Atlas**). Set **`DATABASE_URL`** in
 
 MongoDB / Atlas (collections and data for this API):
 
-![MongoDB database](database.png)
+<p align="center">
+  <img src="./database.png" alt="MongoDB Atlas — finance_dashboard users collection" width="920" />
+</p>
 
-API testing with Postman (e.g. login or authenticated request):
+API testing with Postman (e.g. `POST /api/auth/login`):
 
-![Postman API testing](postman.png)
+<p align="center">
+  <img src="./API-testing_postman.png" alt="Postman — API request and JSON response" width="920" />
+</p>
 
-Place both image files in the **repository root** next to `README.md` (`database.png`, `postman.png`). GitHub and most Markdown viewers render these automatically.
+Image files live in the **repository root** next to `README.md` (`database.png`, `API-testing_postman.png`). Commit and push them so GitHub shows the previews. If a preview is blank locally, open the `.png` files directly or use the **Preview** pane after saving.
 
 ---
 
